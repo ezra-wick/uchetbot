@@ -6,6 +6,7 @@ class ProductState(StatesGroup):
     PRODUCT_QUANTITY = State()
     PRODUCT_DIMENSION = State()
     PRODUCT_PRICE = State()
+    PRODUCT_COST_PRICE = State()
 
 
 class WorkerState(StatesGroup):
@@ -17,5 +18,7 @@ class WorkerState(StatesGroup):
 
 
 class DeliveryState(StatesGroup):
+    DELIVERY_NAME = State()
+    DELIVERY_COST_PRICE = State()
     DELIVERY_QUANTITY = State()
 

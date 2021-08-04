@@ -290,25 +290,87 @@ async def menu(message: types.Message, state=FSMContext):
                                         reply_markup=product_kb) 
             except:
                 await bot.send_message(message.from_user.id,
-                                    'У вас ещё нет сотрудников.',
+                                    'У вас ещё нет товаров.',
                                     reply_markup=product_menu_kb)
 
 
-        if message.text == 'Поставки 🚛':
+        if message.text == delivery_menu_text:
             add_operation(first_name, 'ПОСТАВКИ', result = True)
             await bot.send_message(message.from_user.id,
                                 'Что у нас сегодня?',
                                 reply_markup=delivery_menu_kb)  
 
-        if message.text == delivery_menu_text:
-            pass
         if message.text == add_delivery_value_text:
-            pass
+            try:
+                delivery_kb = InlineKeyboardMarkup(resize_keyboard=True)
+                delivery_list = list(get_all_products().keys())
+                for product in delivery_list:
+                    delivery_kb.insert(InlineKeyboardButton(product, callback_data=product+'<>'))
+                await bot.send_message(message.from_user.id,
+                                        'Выберите товар',
+                                        reply_markup=delivery_kb) 
+            except:
+                await bot.send_message(message.from_user.id,
+                                    'У вас ещё нет товаров.',
+                                    reply_markup=delivery_menu_kb)
+
         if message.text == change_delivery_info_text:
             pass    
         if message.text == get_delivery_info_text:
-            pass
-      
+            try:
+                delivery_info = load_data(delivery_db)
+                delivery_kb = InlineKeyboardMarkup(resize_keyboard=True)
+                delivery_list = list(delivery_info.keys())[:10]
+                print('works1')
+                for date_of_delivery in delivery_list:
+                    time_read = time_readable(date_of_delivery, hours_and_minutes=False)
+                    delivery_list = list(delivery_info[date_of_delivery].keys())
+                    print('works2')
+                    for delivery_id in delivery_list:
+                        product_name = delivery_info[date_of_delivery][delivery_id]['название']
+                        quantity = int(delivery_info[date_of_delivery][delivery_id]['кол-во'])
+                        product_info = load_data(product_db)[product_name]
+                        dimension = product_info['ед. измерения']
+                        cost_price = int(product_info['себестоимость'])
+                        total = quantity*cost_price
+                        print('works3')
+                        delivery_information = f'{time_read} {product_name} на {total} р.'
+                        delivery_kb.insert(InlineKeyboardButton(delivery_information, callback_data=delivery_information))
+                await bot.send_message(message.from_user.id,
+                                        'Последние поcтавки',
+                                        reply_markup=delivery_kb) 
+            except:
+                await bot.send_message(message.from_user.id,
+                                    'У вас ещё нет поставок.',
+                                    reply_markup=delivery_menu_kb)
+
+        if message.text == delivery_cancel_text:
+            try:
+                all_deliveries = load_data(delivery_db)
+                last_deliveries = list(all_deliveries.keys())[-1]
+            
+                # try:
+                #     all_deliveries[last_deliveries].pop()
+                # except:
+                #     all_deliveries.pop()
+                try:
+                    delivery_id = list(last_deliveries.keys())[-1]
+                    print('works1')
+                    del all_deliveries[last_deliveries][delivery_id]
+                    print('works2')
+                except:
+                    del all_deliveries[last_deliveries]
+                    print('works3') 
+                save_data(delivery_db, all_deliveries, mode='w+')
+                await bot.send_message(message.from_user.id,
+                    'Успешно.',
+                    reply_markup=delivery_menu_kb)
+            except:
+                await bot.send_message(message.from_user.id,
+                    'У вас ещё нет поставок.',
+                    reply_markup=delivery_menu_kb)
+            
+
 
         if message.text == 'События 📰':
             operations = load_operations()
@@ -406,12 +468,22 @@ async def product_dimension(callback_query: types.CallbackQuery, state: FSMConte
 
 
 @dp.message_handler(state=ProductState.PRODUCT_PRICE)
+async def product_dimension(callback_query: types.CallbackQuery, state: FSMContext):
+    async with state.proxy() as data:
+        data['price'] = callback_query.text
+    await bot.send_message(callback_query.from_user.id,
+                        'Введите себестоимость товара')
+    await ProductState.PRODUCT_COST_PRICE.set()
+
+
+@dp.message_handler(state=ProductState.PRODUCT_COST_PRICE)
 async def product_price(callback_query: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
         name = data['name']
         dimension = data['dimension']
-        price = callback_query.text
-        add_product(name, dimension, price)
+        price = data['price']
+        cost_price = callback_query.text
+        add_product(name, dimension, price, cost_price)
         await bot.send_message(callback_query.from_user.id,
                             'Товар успешно добавлен!')
     await state.finish()
@@ -419,10 +491,31 @@ async def product_price(callback_query: types.CallbackQuery, state: FSMContext):
 
 ''' DELIVERY STATE HANDLER '''   
 
-@dp.message_handler(state=DeliveryState.DELIVERY_QUANTITY)
+@dp.message_handler(state=DeliveryState.DELIVERY_COST_PRICE)
 async def update_points(callback_query: types.CallbackQuery, state: FSMContext):
+    async with state.proxy() as data:
+        data['price'] = callback_query.text
+    await bot.send_message(callback_query.from_user.id,
+                        'Введите кол-во товара')
+
+    await DeliveryState.DELIVERY_QUANTITY.set()
+
+
+@dp.message_handler(state=DeliveryState.DELIVERY_QUANTITY)
+async def product_price(callback_query: types.CallbackQuery, state: FSMContext):
+    async with state.proxy() as data:
+        name = data['name']
+        price = int(data['price'])
+        quantity = int(callback_query.text)
+        total = price * quantity
+        dimension = get_product_info(name)['ед. измерения']
+        add_delivery(name, quantity, price)
+        await bot.send_message(callback_query.from_user.id,
+                            f'Успешно! Вы добавили {name} - {quantity} {dimension}. на сумму {total} р.')
     await state.finish()
 
+
+''' INLINE KEYBOARDS'''
 
 async def stop(state):
     current_state = await state.get_state()
@@ -447,23 +540,38 @@ for worker in workers_list:
         await bot.send_message(callback_query.from_user.id,
                                 "Сотрудник удален!")
 
+try:
+    product_list = list(get_all_products().keys())
+    for product in product_list:
+        @dp.callback_query_handler(lambda c, product=product: c.data == product)
+        async def info_product(callback_query: types.CallbackQuery):
+            product_info = get_product_info(callback_query.data)
+            product_info = callback_query.data + ':\n' + humanize_text(product_info, double=False)
+            await bot.send_message(callback_query.from_user.id,
+                                    product_info,
+                                    reply_markup=product_menu_kb)
 
-product_list = list(get_all_products().keys())
-for product in product_list:
-    @dp.callback_query_handler(lambda c, product=product: c.data == product)
-    async def info_product(callback_query: types.CallbackQuery):
-        product_info = get_product_info(callback_query.data)
-        product_info = callback_query.data + ':\n' + humanize_text(product_info, double=False)
-        await bot.send_message(callback_query.from_user.id,
-                                product_info,
-                                reply_markup=product_menu_kb)
+        @dp.callback_query_handler(lambda c, product=product: c.data == product + '><')
+        async def product_worker(callback_query: types.CallbackQuery):
+            del_product(callback_query.data.replace('><',''))
+            await bot.send_message(callback_query.from_user.id,
+                                    "Товар удален!")
+
+        @dp.callback_query_handler(lambda c, product=product: c.data == product + '<>')
+        async def set_delivery_name(callback_query: types.CallbackQuery, state: FSMContext):
+            async with state.proxy() as data:
+                data['name'] = callback_query.data.replace('<>','')
+            await bot.send_message(callback_query.from_user.id,
+                                    "Введите цену закупки товара")
+            await DeliveryState.DELIVERY_COST_PRICE.set()
 
 
-    @dp.callback_query_handler(lambda c, product=product: c.data == product + '><')
-    async def product_worker(callback_query: types.CallbackQuery):
-        del_product(callback_query.data.replace('><',''))
-        await bot.send_message(callback_query.from_user.id,
-                                "Товар удален!")
+except:
+    print('no products')
+
+
+
+
 
 for dimension in dimensions_list:
     @dp.callback_query_handler(lambda c, dimension=dimension: c.data == dimension)

@@ -20,7 +20,7 @@ months_nums = {
     '12':'Декабрь',
 }
 
-dimensions_list = ['кг.', 'г.', 'шт.', 'л.']
+dimensions_list = ['кг', 'г', 'шт', 'л']
 
 def get_now_time():
     return datetime.now().strftime("%Y%m%d%H%M")
@@ -40,14 +40,15 @@ def time_dict(time):
     return date_dict
 
 
-def time_readable(time):
+def time_readable(time, hours_and_minutes=True):
     year = time[:4]
     month = months_nums[time[4:6]]
     day = time[6:8]
-    hour = time[8:10]
-    minute = time[10:12]
-    return f'{day} {month} {year}г. в {hour}:{minute}'
-
+    if hours_and_minutes is True:
+        hour = time[8:10]
+        minute = time[10:12]
+        return f'{day} {month} {year}г. в {hour}:{minute}'
+    return f'{day}-{month}'
 
 def load_data(name):
     path = os.path.abspath(os.getcwd() + '/data/' + name) 

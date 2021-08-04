@@ -11,6 +11,7 @@ product_db = 'Product.json'
 operation_db = 'Operation.json'
 finance_db = 'Finance.json'
 delivery_db = 'Delivery.json'
+prices_history = 'Prices_history.json'
 
 
 def add_worker(telegram_id, name, phone, role, salary,
@@ -76,10 +77,13 @@ def del_product(name):
     save_data(product_db, all_products)
 
 
-def add_product(name, dimension, price, quantity=None,
+def add_product(name, dimension, price, cost_price, quantity=None,
                 in_sale=True, description=None,
                 category=None, image=None):
-    product_dict = {}
+    try:
+        product_dict = get_all_products()
+    except:
+        product_dict = {}
     product_info_dict = {}
     try:
         if load_data(product_db):
@@ -100,6 +104,7 @@ def add_product(name, dimension, price, quantity=None,
     product_info_dict['ед. измерения'] = dimension
 
     product_info_dict['цена'] = price
+    product_info_dict['себестоимость'] = cost_price
     product_info_dict['описание'] = description
     product_info_dict['категория'] = category
     product_info_dict['изображение'] = image
@@ -109,22 +114,74 @@ def add_product(name, dimension, price, quantity=None,
     except:
         time_start = get_now_time()
         product_info_dict['дата добавления'] = time_start
+
     product_dict[name] = product_info_dict
-    save_data(product_db, product_dict)
+    save_data(product_db, product_dict, mode='w+')
 
 
 def load_deliveries():
     return load_data(delivery_db)
 
 
-def add_delivery(product_dict):
+def add_delivery(product_name, quantity, cost_price):
     try:
         delivery_dict = load_deliveries()
     except:
         delivery_dict = {}
-    time_start = get_now_time()
-    delivery_dict[time_start] = product_dict
-    save_data(product_db, delivery_dict)
+
+    delivery_info_dict = {}
+    delivery_info_dict['название'] = product_name
+    delivery_info_dict['кол-во'] = quantity
+    product_info = get_product_info(product_name)
+    time_start = get_now_time()[:-4]
+
+
+    if product_info['кол-во']:
+        product_info['кол-во'] += quantity
+    else:
+        product_info['кол-во'] = quantity
+
+    if product_info['себестоимость'] != cost_price:
+        product_info['себестоимость'] = cost_price
+        try:
+            all_prices = load_data(prices_history)
+            
+        except:
+            all_prices = {}
+
+        try:
+            prices_dict = all_prices[product_name]
+        except:
+            prices_dict = {}
+
+        prices_dict[time_start] = cost_price
+        all_prices[product_name] = prices_dict
+        save_data(prices_history, all_prices, mode='w+')
+
+    all_products = get_all_products()
+    all_products[product_name] = product_info
+    save_data(product_db, all_products, mode='w+')
+    delivery_id_dict = {}
+    try:
+        if load_data(product_db):
+            delivery_dates = list(load_data(delivery_db).keys())
+            counter = 0
+            for date_delivery in delivery_dates:
+                counter += len(list(load_data(delivery_db)[date_delivery].keys))
+
+            if len(str(counter)) == 1:
+                delivery_id = '000' + str(counter)
+            elif len(str(counter)) == 2:
+                delivery_id = '00' + str(counter)
+            elif len(str(counter)) == 3:
+                delivery_id = '0' + str(counter)
+            delivery_id_dict[delivery_id] = delivery_info_dict
+    except:
+        delivery_id = 0000
+        delivery_id_dict[delivery_id] = delivery_info_dict
+
+    delivery_dict[time_start] = delivery_id_dict
+    save_data(delivery_db, delivery_dict, mode='w+')
 
 
 def add_operation(user, operation_type, result='', value=''):

@@ -55,14 +55,17 @@ delivery_menu_text = 'Поставки 🚛'
 add_delivery_value_text = 'Добавить ➕'
 change_delivery_info_text = 'Изменить 🚛'
 get_delivery_info_text = 'Информация 🔍'
+delivery_cancel_text = 'Отменить последнюю поставку ❌'
 
 Delivery_menu_btn = KeyboardButton(delivery_menu_text)
 Add_delivery_value_btn = KeyboardButton(add_delivery_value_text)
 Change_delivery_info_btn = KeyboardButton(change_delivery_info_text)
 Get_delivery_info_btn = KeyboardButton(get_delivery_info_text)
+Delivery_cancel_btn = KeyboardButton(delivery_cancel_text)
 delivery_menu_kb = (ReplyKeyboardMarkup(resize_keyboard=True).add(Add_delivery_value_btn)
                                                              .add(Change_delivery_info_btn)
                                                              .add(Get_delivery_info_btn)
+                                                             .add(Delivery_cancel_btn)
                                                              .add(Back_btn2))
 
 
